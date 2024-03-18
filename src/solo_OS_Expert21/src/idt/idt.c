@@ -1,5 +1,7 @@
 #include <libc/idt.h>
 
+extern void idt_load();
+
 void idt_set_gate(unsigned char num, unsigned long base, unsigned short sel, unsigned char flags)
 {
     idt[num].base_lo = base & 0xFFFF;           // Set lower 16 bits of the base address

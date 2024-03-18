@@ -1,5 +1,13 @@
 #include <libc/interupts.h>
-extern void isr0();
+
+__attribute__((noreturn))
+void exception_handler(void);
+void exception_handler() {
+    __asm__ volatile ("cli; hlt"); // Completely hangs the computer
+}
+
+
+/*extern void isr0();
 extern void isr1();
 extern void isr2();
 extern void isr3();
@@ -107,12 +115,11 @@ void isrs_install() {
 
 void fault_handler(struct regs *r)
 {
-    /* Is this a fault whose number is from 0 to 31? */
+     // Is this a fault whose number is from 0 to 31? 
     if (r->int_no < 32)
     {
         puts(exception_messages[r->int_no]);
         puts(" Exception. System Halted!\n");
         for (;;);
     }
-}
-
+}*/

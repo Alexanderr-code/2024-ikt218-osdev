@@ -65,11 +65,12 @@ add_executable(uiaos-kernel
 	src/gdt/gdt.c
 	src/common/common.c
 	src/common/screen.c
-	#src/gdt/print.c
+	src/idt/idt.c
+	src/idt/isr.asm
+	src/isr/isr.asm
+	src/isr/isrs.c
 	
-	#src/idt/idt.c
-	#src/idt/isr.asm
-	#src/idt/isrs.c
+	
 	
 )
 

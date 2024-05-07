@@ -66,9 +66,16 @@ add_executable(uiaos-kernel
 	src/common/common.c
 	src/common/screen.c
 	src/idt/idt.c
-	src/idt/isr.asm
 	src/isr/isr.asm
 	src/isr/isrs.c
+	src/my_string/mystring.c
+	src/idt/idt.asm
+	src/timer/timer.c
+	src/keyboard/keyboard.c
+	src/memory/memory.c
+	src/memory/malloc.c
+	src/memory/memutils.c
+	src/song/song.cpp
 	
 	
 	

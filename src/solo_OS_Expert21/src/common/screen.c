@@ -1,5 +1,6 @@
 #include <libc/screen.h>
 #include <libc/stdarg.h>
+#include <libc/stdint.h>
 
 // In screen.h or another relevant header file
 int cursor_x;
@@ -15,6 +16,55 @@ void move_cursor()
    outb(0x3D5, cursorLocation >> 8); // Send the high cursor byte.
    outb(0x3D4, 15);                  // Tell the VGA board we are setting the low cursor byte.
    outb(0x3D5, cursorLocation);      // Send the low cursor byte.
+}
+
+// Scrolls the text on the screen up by one line.
+static void scroll()
+{
+
+   // Get a space character with the default colour attributes.
+   u8int attributeByte = (0 /*black*/ << 4) | (15 /*white*/ & 0x0F);
+   u16int blank = 0x20 /* space */ | (attributeByte << 8);
+
+   // Row 25 is the end, this means we need to scroll up
+   if(cursor_y >= 25)
+   {
+       // Move the current text chunk that makes up the screen
+       // back in the buffer by a line
+       int i;
+       for (i = 0*80; i < 24*80; i++)
+       {
+           video_memory[i] = video_memory[i+80];
+       }
+
+       // The last line should now be blank. Do this by writing
+       // 80 spaces to it.
+       for (i = 24*80; i < 25*80; i++)
+       {
+           video_memory[i] = blank;
+       }
+       // The cursor should now be on the last line.
+       cursor_y = 24;
+   }
+}
+
+// Clears the screen, by copying lots of spaces to the framebuffer.
+void monitor_clear()
+{
+   // Make an attribute byte for the default colours
+   u8int attributeByte = (0 /*black*/ << 4) | (15 /*white*/ & 0x0F);
+   u16int blank = 0x20 /* space */ | (attributeByte << 8);
+
+   int i;
+   for (i = 0; i < 80*25; i++)
+   {
+       video_memory[i] = blank;
+   }
+
+   // Move the hardware cursor back to the start.
+   cursor_x = 0;
+   cursor_y = 0;
+   move_cursor();
 }
 
 void printf_put(char c)
@@ -71,7 +121,20 @@ void printf_put(char c)
        cursor_x = 0;
        cursor_y ++;
    }
+   scroll();
+   move_cursor();
 }
+
+void handle_backspace() {
+    cursor_x--;  // Move cursor back one position
+    // Clear the character at the new cursor position
+    u8int attributeByte = (0 /*black*/ << 4) | (15 /*white*/ & 0x0F);
+    u16int blank = 0x20 /* space */ | (attributeByte << 8);
+    u16int *location = video_memory + (cursor_y * 80 + cursor_x);
+    *location = blank;  // Set the character to space with default attributes
+    move_cursor();  // Move cursor to the new position
+}
+
 
 void printf_clear()
 {
@@ -162,6 +225,26 @@ void printf(char* str, ...){
                 str++;
                 break;
             }
+
+            /*case 'k':
+            {
+                int n = va_arg(args, int);
+                char buffer[100]; 
+
+                int_to_ascii(n,buffer);
+
+                char *ptr = buffer;
+
+                while (*ptr != '\0')
+                {
+                    printf_put(*ptr);
+                    *ptr++;
+                }
+
+                str++;
+                break;
+                
+            }*/
         
 
             case 'f': 
@@ -179,6 +262,44 @@ void printf(char* str, ...){
                     *ptr++;
                 }
 
+                str++;
+                break;
+            }
+
+            case 'x':
+            {
+                // Get the next argument from the va_list as an unsigned integer.
+                int num = va_arg(args, int);
+                // Calculate the number of digits in the hexadecimal representation.
+                int num_digits = 0;
+                int temp = num;
+                do 
+                {
+                    num_digits++;
+                    temp /= 16;
+                } 
+                while (temp != 0);
+                // Create a buffer to store the hexadecimal representation of the number.
+                char hex_buffer[9] = {0};
+                // Convert each digit of the number to a hexadecimal character.
+                for (int i = num_digits - 1; i >= 0; i--) 
+                {
+                    int digit = (num >> (4 * i)) & 0xF;
+                    if (digit < 10) 
+                    {
+                        hex_buffer[num_digits - i - 1] = '0' + digit;
+                    } 
+                    else 
+                    {
+                        hex_buffer[num_digits - i - 1] = 'a' + (digit - 10);
+                    }
+                }
+                // Print the hexadecimal string to the terminal.
+                for (int i = 0; i < num_digits; i++) 
+                {
+                    printf_put(hex_buffer[i]);
+                }
+                // Move on to the next character in the format string.
                 str++;
                 break;
             }
@@ -228,12 +349,15 @@ void int_to_string(char* str, int num)
         str[length--] = num % 10 + '0';
         
         //Updates num by dividing it by 10, which effectively removes the rightmost digit of num.
-        num /= 10;
+            num /= 10;
     }
 
     //Set the character at the end of the string as \0.
     str[end_index] = '\0';
 }
+
+
+
 
 void float_to_string(char* str, float f, int precision) 
 {
@@ -307,3 +431,41 @@ void float_to_string(char* str, float f, int precision)
 
     str[i] = '\0';
 }
+
+/*// Helper function to print a hexadecimal digit
+void print_hex_digit(uint32_t digit) {
+    if (digit < 10) {
+        printf_put('0' + digit);
+    } else {
+        printf_put('A' + digit - 10);
+    }
+}
+
+// Function to print a 32-bit number in hexadecimal
+void print_write_hex(uint32_t n) {
+    printf_put('0');
+    printf_put('x');
+    for (int i = 28; i >= 0; i -= 4) {
+        uint32_t digit = (n >> i) & 0xF; // Extract the digit
+        if (digit != 0 || i == 0) { // Avoid leading zeros, except for the number 0
+            print_hex_digit(digit);
+        }
+    }
+}
+
+void print_dec(uint32_t n) {
+    if (n >= 10) {
+        print_dec(n / 10);
+    }
+    printf_put('0' + n % 10);
+}
+
+// Function to print a 32-bit number in decimal
+void print_write_dec(uint32_t n) {
+    if (n == 0) {
+        // Handle 0 explicitly
+        printf_put('0');
+        return;
+    }
+    print_dec(n);
+}*/
